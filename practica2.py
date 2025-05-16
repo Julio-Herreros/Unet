@@ -16,7 +16,7 @@ if __name__ == '__main__':
     image_tensor = list()
     mask_tensor = list()
     for image in images:
-        dd = PIL.Image.open('./data/Image/{image}')
+        dd = PIL.Image.open(f'./data/Image/{image}')
         tt = torchvision.transforms.functional.pil_to_tensor(dd)
         tt = torchvision.transforms.functional.resize(tt, (100, 100))
 
