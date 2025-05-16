@@ -28,7 +28,7 @@ if __name__ == '__main__':
 
         image_tensor.append(tt)
 
-        mask = image,replace('.jpg', '.png')
+        mask = image.replace('.jpg', '.png')
         dd = PIL.Image.open(f'./data/Mask/{mask}')
         mm = torchvision.transforms.functional.pil_to_tensor(dd)
 
@@ -39,7 +39,7 @@ if __name__ == '__main__':
         mm = torch.tensor((mm > 0.).detach().numpy(), dtype=torch.long)
         mm = torch.nn.functional.one_hot(mm)
 
-        mm = torch,permute(mm, (0, 3, 1, 2))
+        mm = torch.permute(mm, (0, 3, 1, 2))
         mm = torch.tensor(mm, dtype=torch.float)
 
         mask_tensor.appende(mm)
