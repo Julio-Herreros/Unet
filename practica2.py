@@ -7,71 +7,56 @@ import os
 import torch.nn as nn
 import torch.nn.functional as F
 import matplotlib.pyplot as plt
-from sklearn.model_selection import train_test_split
-import sklearn
 
 if __name__ == '__main__':
+
     images = os.listdir('./data/Image/')
-    print("Total imágenes:", len(images))
+    masks = os.listdir('./data/Mask/')
+
+    print(len(images), len(masks))
 
     image_tensor = list()
     mask_tensor = list()
-
     for image in images:
-        try:
-            dd = PIL.Image.open(f'./data/Image/{image}')
-            tt = torchvision.transforms.functional.pil_to_tensor(dd)
-            tt = torchvision.transforms.functional.resize(tt, (100, 100))
-            tt = tt[None, :, :, :]
-            tt = torch.tensor(tt, dtype=torch.float) / 255.
+        dd = PIL.Image.open(f'./data/Image/{image}')
+        tt = torchvision.transforms.functional.pil_to_tensor(dd)
+        tt = torchvision.transforms.functional.resize(tt, (100, 100))
 
-            if tt.shape != (1, 3, 100, 100):
-                continue
+        tt = tt[None, :, :, :]
+        tt = torch.tensor(tt, dtype=torch.float) / 255.
 
-            mask = image.replace('.jpg', '.png')
-            dd = PIL.Image.open(f'./data/Mask/{mask}')
-            mm = torchvision.transforms.functional.pil_to_tensor(dd)
-            mm = mm.repeat(3, 1, 1)
-            mm = torchvision.transforms.functional.resize(mm, (100, 100))
-            mm = mm[:1, :, :]
-
-            mm = torch.tensor((mm > 0.).detach().numpy(), dtype=torch.long)
-            mm = torch.nn.functional.one_hot(mm)
-            mm = torch.permute(mm, (0, 3, 1, 2))
-            mm = torch.tensor(mm, dtype=torch.float)
-
-            image_tensor.append(tt)
-            mask_tensor.append(mm)
-
-        except Exception as e:
-            print(f"Error al procesar {image}: {e}")
+        if tt.shape != (1, 3, 100, 100):
             continue
 
+        image_tensor.append(tt)
+
+        mask = image.replace('.jpg', '.png')
+        dd = PIL.Image.open(f'./data/Mask/{mask}')
+        mm = torchvision.transforms.functional.pil_to_tensor(dd)
+
+        mm = mm.repeat(3, 1, 1)
+        mm = torchvision.transforms.functional.resize(mm, (100, 100))
+        mm = mm[:1, :, :]
+
+        mm = torch.tensor((mm > 0.).detach().numpy(), dtype=torch.long)
+        mm = torch.nn.functional.one_hot(mm)
+
+        mm = torch.permute(mm, (0, 3, 1, 2))
+        mm = torch.tensor(mm, dtype=torch.float)
+
+        mask_tensor.append(mm)
+
     image_tensor = torch.cat(image_tensor)
+    print(image_tensor.shape)
+
     masks_tensor = torch.cat(mask_tensor)
-
-    print("Imagenes shape:", image_tensor.shape)
-    print("Máscaras shape:", masks_tensor.shape)
-
-    # División entrenamiento/validación (80/20)
-    indices = list(range(len(image_tensor)))
-    train_idx, val_idx = train_test_split(indices, test_size=0.2, random_state=42)
-
-    train_images = image_tensor[train_idx]
-    val_images = image_tensor[val_idx]
-    train_masks = masks_tensor[train_idx]
-    val_masks = masks_tensor[val_idx]
+    print(masks_tensor.shape)
 
     unet = UNet(n_channels=3, n_classes=2)
 
-    # Dataloaders
-    batch_size = 16
-    train_loader = zip(torch.utils.data.DataLoader(train_images, batch_size=batch_size),
-                       torch.utils.data.DataLoader(train_masks, batch_size=batch_size))
-    val_loader = zip(torch.utils.data.DataLoader(val_images, batch_size=batch_size),
-                     torch.utils.data.DataLoader(val_masks, batch_size=batch_size))
+    dataloader_train_image = torch.utils.data.DataLoader(image_tensor, batch_size=64)
+    dataloader_train_target = torch.utils.data.DataLoader(masks_tensor, batch_size=64)
 
-    # Optimizador y loss
     optim = torch.optim.Adam(unet.parameters(), lr=0.001)
     cross_entropy = torch.nn.CrossEntropyLoss()
 
@@ -81,47 +66,38 @@ if __name__ == '__main__':
     train_iou_list = []
     val_iou_list = []
 
+    loss_list = list()
+    jaccard_list = list()
     for epoch in range(10):
+        running_loss = 0.
         unet.train()
-        train_loss = 0.
-        train_iou = []
 
-        for image, target in train_loader:
-            optim.zero_grad()
+        jaccard_epoch = list()
+        for image, target in zip(dataloader_train_image, dataloader_train_target):
+            
             pred = unet(image)
+
             loss = cross_entropy(pred, target)
-            train_loss += loss.item()
+            running_loss += loss.item()
+
             loss.backward()
             optim.step()
 
-            _, pred_label = torch.max(pred, dim=1)
-            _, target_label = torch.max(target, dim=1)
-            iou = torch.sum(pred_label == target_label, dim=(1,2)) / 10000.
-            train_iou.append(torch.mean(iou).item())
+        for image, target in zip(dataloader_train_image, dataloader_train_target):
 
-        train_loss_list.append(train_loss)
-        train_iou_list.append(sum(train_iou) / len(train_iou))
+            pred = unet(image)
 
-        # Validación
-        unet.eval()
-        val_loss = 0.
-        val_iou = []
-        with torch.no_grad():
-            for image, target in val_loader:
-                pred = unet(image)
-                loss = cross_entropy(pred, target)
-                val_loss += loss.item()
+            _,pred_unflatten = torch.max(pred, dim = 1)
+            _,target_unflatten = torch.max(target, dim = 1)
 
-                _, pred_label = torch.max(pred, dim=1)
-                _, target_label = torch.max(target, dim=1)
-                iou = torch.sum(pred_label == target_label, dim=(1,2)) / 10000.
-                val_iou.append(torch.mean(iou).item())
+            intersection = torch.sum(pred_unflatten == target_unflatten, dim=(1,2))/10000.
 
-        val_loss_list.append(val_loss)
-        val_iou_list.append(sum(val_iou) / len(val_iou))
+            jaccard_epoch.append(torch.mean(intersection).detach())
 
-        print(f"Epoch {epoch+1} - Train Loss: {train_loss:.4f}, Val Loss: {val_loss:.4f}, Train IoU: {train_iou_list[-1]:.4f}, Val IoU: {val_iou_list[-1]:.4f}")
+        jaccard_list.append(sum(jaccard_epoch) / len(jaccard_epoch))
+        loss_list.append(running_loss)
 
+    
     # Gráficas
     epochs = list(range(1, 11))
 
@@ -147,3 +123,5 @@ if __name__ == '__main__':
 
     plt.tight_layout()
     plt.show()
+
+
