@@ -42,7 +42,7 @@ if __name__ == '__main__':
         mm = torch.permute(mm, (0, 3, 1, 2))
         mm = torch.tensor(mm, dtype=torch.float)
 
-        mask_tensor.appende(mm)
+        mask_tensor.append(mm)
 
     image_tensor = torch.cat(image_tensor)
     print(image_tensor.shape)
