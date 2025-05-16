@@ -16,7 +16,7 @@ if __name__ == '__main__':
     image_tensor = list()
     mask_tensor = list()
     for image in images:
-        dd = PIL.Image.open('./flood/data/Image/{image}')
+        dd = PIL.Image.open('./data/Image/{image}')
         tt = torchvision.transforms.functional.pil_to_tensor(dd)
         tt = torchvision.transforms.functional.resize(tt, (100, 100))
 
@@ -29,7 +29,7 @@ if __name__ == '__main__':
         image_tensor.append(tt)
 
         mask = image,replace('.jpg', '.png')
-        dd = PIL.Image.open(f'./flood/data/Mask/{mask}')
+        dd = PIL.Image.open(f'./data/Mask/{mask}')
         mm = torchvision.transforms.functional.pil_to_tensor(dd)
 
         mm = mm.repeat(3, 1, 1)
