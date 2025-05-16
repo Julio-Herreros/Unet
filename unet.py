@@ -4,6 +4,7 @@ import os
 import torch
 import torch.nn as nn
 import torchvision
+import torch.nn.functional as F
 
 class DoubleConv(torch.nn.Module):
     """(convolution => [BN] => ReLU) * 2"""
