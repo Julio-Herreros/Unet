@@ -7,7 +7,6 @@ import os
 import torch.nn as nn
 import torch.nn.functional as F
 import matplotlib.pyplot as plt
-from sklearn.model_selection import train_test_split
 
 if __name__ == '__main__':
 
@@ -43,8 +42,18 @@ if __name__ == '__main__':
     print(image_tensor.shape)
     print(masks_tensor.shape)
 
-    # ✅ Dividir en entrenamiento y validación
-    train_imgs, val_imgs, train_masks, val_masks = train_test_split(image_tensor, masks_tensor, test_size=0.2, random_state=42)
+    # ✅ División manual en entrenamiento y validación (80/20)
+    dataset_size = image_tensor.shape[0]
+    split = int(0.8 * dataset_size)
+    indices = torch.randperm(dataset_size)
+
+    train_indices = indices[:split]
+    val_indices = indices[split:]
+
+    train_imgs = image_tensor[train_indices]
+    train_masks = masks_tensor[train_indices]
+    val_imgs = image_tensor[val_indices]
+    val_masks = masks_tensor[val_indices]
 
     train_loader = torch.utils.data.DataLoader(torch.utils.data.TensorDataset(train_imgs, train_masks), batch_size=64, shuffle=True)
     val_loader = torch.utils.data.DataLoader(torch.utils.data.TensorDataset(val_imgs, val_masks), batch_size=64, shuffle=False)
@@ -74,7 +83,7 @@ if __name__ == '__main__':
             loss.backward()
             optim.step()
 
-        # Cálculo de IoU de entrenamiento
+        # IoU entrenamiento
         unet.eval()
         train_iou = []
         with torch.no_grad():
@@ -93,7 +102,7 @@ if __name__ == '__main__':
         train_loss_list.append(running_loss)
         train_iou_list.append(avg_train_iou)
 
-        # Cálculo de pérdida e IoU de validación
+        # Validación
         val_loss = 0.
         val_iou = []
         with torch.no_grad():
@@ -102,7 +111,6 @@ if __name__ == '__main__':
                 target = target.to(device)
                 pred = unet(image)
                 val_loss += cross_entropy(pred, torch.argmax(target, dim=1)).item()
-
                 pred_labels = torch.argmax(pred, dim=1)
                 target_labels = torch.argmax(target, dim=1)
                 intersection = ((pred_labels == 1) & (target_labels == 1)).sum(dim=(1, 2))
