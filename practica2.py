@@ -1,3 +1,4 @@
+
 import torchvision
 import torch
 import PIL
@@ -32,7 +33,7 @@ if __name__ == '__main__':
         mask = image.replace('.jpg', '.png')
         dd = PIL.Image.open(f'./data/Mask/{mask}')
         mm = torchvision.transforms.functional.pil_to_tensor(dd)
-        mm = torchvision.transforms.functional.resize(mm, (100, 100))
+        mm = torchvision.transforms.functional.resize(mm, (128, 128))
         mm = (mm[:1] > 0).long()
         mm = torch.nn.functional.one_hot(mm[0], num_classes=2).permute(2, 0, 1)
         mask_tensor.append(mm.unsqueeze(0).float())
@@ -67,7 +68,7 @@ if __name__ == '__main__':
     train_iou_list = []
     val_iou_list = []
 
-    for epoch in range(10):
+    for epoch in range(30):
         running_loss = 0.
         unet.train()
 
