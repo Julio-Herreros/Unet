@@ -122,7 +122,7 @@ if __name__ == '__main__':
     plt.ylabel('IoU')
     plt.grid(True)
     plt.legend()
-    plt.title('Precisión por época')
+    plt.title('Precisión-por-época.png')
 
     plt.tight_layout()
     plt.show()
