@@ -126,7 +126,7 @@ if __name__ == '__main__':
         print(f"Epoch {epoch+1} | Train Loss: {running_loss:.4f} | Train IoU: {avg_train_iou:.4f} | Val Loss: {val_loss:.4f} | Val IoU: {avg_val_iou:.4f}")
 
     # Gráficas
-    epochs = list(range(1, 11))
+    epochs = list(range(1, len(train_loss_list) + 1))
 
     plt.figure(figsize=(12, 5))
 
