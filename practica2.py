@@ -24,7 +24,7 @@ if __name__ == '__main__':
     for image in images:
         dd = PIL.Image.open(f'./data/Image/{image}')
         tt = torchvision.transforms.functional.pil_to_tensor(dd)
-        tt = torchvision.transforms.functional.resize(tt, (100, 100))
+        tt = torchvision.transforms.functional.resize(tt, (128, 128))
         tt = tt.clone().detach().float() / 255.
         if tt.shape != (3, 100, 100):
             continue
