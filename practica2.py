@@ -113,6 +113,7 @@ if __name__ == '__main__':
     plt.ylabel('Loss')
     plt.grid(True)
     plt.legend()
+    plt.savefig("perdida-por-epoca.png")
 
     plt.subplot(1, 2, 2)
     plt.plot(epochs, train_iou_list, label='Train IoU', marker='o')
@@ -121,6 +122,7 @@ if __name__ == '__main__':
     plt.ylabel('IoU')
     plt.grid(True)
     plt.legend()
+    plt.title('Precisión por época')
 
     plt.tight_layout()
     plt.show()
