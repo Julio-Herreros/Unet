@@ -1,150 +1,144 @@
-import os
-import torch
 import torchvision
-import numpy as np
-import matplotlib.pyplot as plt
+import torch
+import PIL
 from PIL import Image
-from sklearn.model_selection import train_test_split
 from unet import UNet
+import os
 import torch.nn as nn
+import torch.nn.functional as F
+import matplotlib.pyplot as plt
+from sklearn.model_selection import train_test_split
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-print(f"Usando dispositivo: {device}")
+if __name__ == '__main__':
 
-# Cargar imágenes y máscaras
-image_tensor = []
-mask_tensor = []
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print(f'Usando dispositivo: {device}')
 
-images = os.listdir('./data/Image/')
-for image in images:
-    img = Image.open(f'./data/Image/{image}').convert('RGB')
-    img_tensor = torchvision.transforms.functional.pil_to_tensor(img)
-    img_tensor = torchvision.transforms.functional.resize(img_tensor, (100, 100))
-    img_tensor = img_tensor.clone().detach().float() / 255.
-    image_tensor.append(img_tensor.unsqueeze(0))
+    images = os.listdir('./data/Image/')
+    masks = os.listdir('./data/Mask/')
 
-    mask_name = image.replace('.jpg', '.png')
-    mask = Image.open(f'./data/Mask/{mask_name}')
-    mask_tensor_raw = torchvision.transforms.functional.pil_to_tensor(mask)
-    mask_tensor_raw = torchvision.transforms.functional.resize(mask_tensor_raw, (100, 100))
-    mask_bin = (mask_tensor_raw[:1] > 0).long()
-    mask_one_hot = torch.nn.functional.one_hot(mask_bin[0], num_classes=2).permute(2, 0, 1)
-    mask_tensor.append(mask_one_hot.unsqueeze(0).float())
+    print(len(images), len(masks))
 
-image_tensor = torch.cat(image_tensor)
-mask_tensor = torch.cat(mask_tensor)
+    image_tensor = list()
+    mask_tensor = list()
+    for image in images:
+        dd = PIL.Image.open(f'./data/Image/{image}')
+        tt = torchvision.transforms.functional.pil_to_tensor(dd)
+        tt = torchvision.transforms.functional.resize(tt, (100, 100))
+        tt = tt.clone().detach().float() / 255.
+        if tt.shape != (3, 100, 100):
+            continue
+        image_tensor.append(tt.unsqueeze(0))
 
-print("Imágenes:", image_tensor.shape)
-print("Máscaras:", mask_tensor.shape)
+        mask = image.replace('.jpg', '.png')
+        dd = PIL.Image.open(f'./data/Mask/{mask}')
+        mm = torchvision.transforms.functional.pil_to_tensor(dd)
+        mm = torchvision.transforms.functional.resize(mm, (100, 100))
+        mm = (mm[:1] > 0).long()
+        mm = torch.nn.functional.one_hot(mm[0], num_classes=2).permute(2, 0, 1)
+        mask_tensor.append(mm.unsqueeze(0).float())
 
-# División entrenamiento / validación
-train_imgs, val_imgs, train_masks, val_masks = train_test_split(image_tensor, mask_tensor, test_size=0.2, random_state=42)
+    image_tensor = torch.cat(image_tensor)
+    masks_tensor = torch.cat(mask_tensor)
+    print(image_tensor.shape)
+    print(masks_tensor.shape)
 
-train_dataset = torch.utils.data.TensorDataset(train_imgs, train_masks)
-val_dataset = torch.utils.data.TensorDataset(val_imgs, val_masks)
+    # ✅ Dividir en entrenamiento y validación
+    train_imgs, val_imgs, train_masks, val_masks = train_test_split(image_tensor, masks_tensor, test_size=0.2, random_state=42)
 
-train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=64, shuffle=True)
-val_loader = torch.utils.data.DataLoader(val_dataset, batch_size=64, shuffle=False)
+    train_loader = torch.utils.data.DataLoader(torch.utils.data.TensorDataset(train_imgs, train_masks), batch_size=64, shuffle=True)
+    val_loader = torch.utils.data.DataLoader(torch.utils.data.TensorDataset(val_imgs, val_masks), batch_size=64, shuffle=False)
 
-# Modelo y entrenamiento
-unet = UNet(n_channels=3, n_classes=2).to(device)
-optimizer = torch.optim.Adam(unet.parameters(), lr=0.001)
-loss_fn = nn.CrossEntropyLoss()
+    unet = UNet(n_channels=3, n_classes=2).to(device)
+    optim = torch.optim.Adam(unet.parameters(), lr=0.001)
+    cross_entropy = nn.CrossEntropyLoss()
 
-train_loss_list = []
-val_loss_list = []
-train_iou_list = []
-val_iou_list = []
+    train_loss_list = []
+    val_loss_list = []
+    train_iou_list = []
+    val_iou_list = []
 
-for epoch in range(10):
-    unet.train()
-    running_loss = 0.
+    for epoch in range(10):
+        running_loss = 0.
+        unet.train()
 
-    for imgs, masks in train_loader:
-        imgs = imgs.to(device)
-        masks = masks.to(device)
+        for image, target in train_loader:
+            image = image.to(device)
+            target = target.to(device)
 
-        preds = unet(imgs)
-        loss = loss_fn(preds, torch.argmax(masks, dim=1))
+            pred = unet(image)
+            loss = cross_entropy(pred, torch.argmax(target, dim=1))
+            running_loss += loss.item()
 
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
+            optim.zero_grad()
+            loss.backward()
+            optim.step()
 
-        running_loss += loss.item()
+        # Cálculo de IoU de entrenamiento
+        unet.eval()
+        train_iou = []
+        with torch.no_grad():
+            for image, target in train_loader:
+                image = image.to(device)
+                target = target.to(device)
+                pred = unet(image)
+                pred_labels = torch.argmax(pred, dim=1)
+                target_labels = torch.argmax(target, dim=1)
+                intersection = ((pred_labels == 1) & (target_labels == 1)).sum(dim=(1, 2))
+                union = ((pred_labels == 1) | (target_labels == 1)).sum(dim=(1, 2))
+                iou = (intersection.float() / (union.float() + 1e-6)).mean().item()
+                train_iou.append(iou)
 
-    # IoU entrenamiento
-    unet.eval()
-    train_iou = []
-    with torch.no_grad():
-        for imgs, masks in train_loader:
-            imgs = imgs.to(device)
-            masks = masks.to(device)
+        avg_train_iou = sum(train_iou) / len(train_iou)
+        train_loss_list.append(running_loss)
+        train_iou_list.append(avg_train_iou)
 
-            preds = unet(imgs)
-            pred_labels = torch.argmax(preds, dim=1)
-            target_labels = torch.argmax(masks, dim=1)
+        # Cálculo de pérdida e IoU de validación
+        val_loss = 0.
+        val_iou = []
+        with torch.no_grad():
+            for image, target in val_loader:
+                image = image.to(device)
+                target = target.to(device)
+                pred = unet(image)
+                val_loss += cross_entropy(pred, torch.argmax(target, dim=1)).item()
 
-            intersection = ((pred_labels == 1) & (target_labels == 1)).sum(dim=(1, 2))
-            union = ((pred_labels == 1) | (target_labels == 1)).sum(dim=(1, 2))
-            iou = (intersection.float() / (union.float() + 1e-6)).mean().item()
-            train_iou.append(iou)
+                pred_labels = torch.argmax(pred, dim=1)
+                target_labels = torch.argmax(target, dim=1)
+                intersection = ((pred_labels == 1) & (target_labels == 1)).sum(dim=(1, 2))
+                union = ((pred_labels == 1) | (target_labels == 1)).sum(dim=(1, 2))
+                iou = (intersection.float() / (union.float() + 1e-6)).mean().item()
+                val_iou.append(iou)
 
-    # IoU validación
-    val_loss = 0.
-    val_iou = []
-    with torch.no_grad():
-        for imgs, masks in val_loader:
-            imgs = imgs.to(device)
-            masks = masks.to(device)
+        avg_val_iou = sum(val_iou) / len(val_iou)
+        val_loss_list.append(val_loss)
+        val_iou_list.append(avg_val_iou)
 
-            preds = unet(imgs)
-            loss = loss_fn(preds, torch.argmax(masks, dim=1))
-            val_loss += loss.item()
+        print(f"Epoch {epoch+1} | Train Loss: {running_loss:.4f} | Train IoU: {avg_train_iou:.4f} | Val Loss: {val_loss:.4f} | Val IoU: {avg_val_iou:.4f}")
 
-            pred_labels = torch.argmax(preds, dim=1)
-            target_labels = torch.argmax(masks, dim=1)
+    # Gráficas
+    epochs = list(range(1, 11))
 
-            intersection = ((pred_labels == 1) & (target_labels == 1)).sum(dim=(1, 2))
-            union = ((pred_labels == 1) | (target_labels == 1)).sum(dim=(1, 2))
-            iou = (intersection.float() / (union.float() + 1e-6)).mean().item()
-            val_iou.append(iou)
+    plt.figure(figsize=(12, 5))
 
-    avg_train_iou = sum(train_iou) / len(train_iou)
-    avg_val_iou = sum(val_iou) / len(val_iou)
+    plt.subplot(1, 2, 1)
+    plt.plot(epochs, train_loss_list, label='Train Loss', marker='o')
+    plt.plot(epochs, val_loss_list, label='Validation Loss', marker='o')
+    plt.title('Loss por Epoch')
+    plt.xlabel('Epoch')
+    plt.ylabel('Loss')
+    plt.grid(True)
+    plt.legend()
 
-    train_loss_list.append(running_loss)
-    val_loss_list.append(val_loss)
-    train_iou_list.append(avg_train_iou)
-    val_iou_list.append(avg_val_iou)
+    plt.subplot(1, 2, 2)
+    plt.plot(epochs, train_iou_list, label='Train IoU', marker='o')
+    plt.plot(epochs, val_iou_list, label='Validation IoU', marker='o')
+    plt.title('Jaccard Index (IoU) por Epoch')
+    plt.xlabel('Epoch')
+    plt.ylabel('IoU')
+    plt.grid(True)
+    plt.legend()
 
-    print(f"Epoch {epoch+1} | Train Loss: {running_loss:.4f} | Train IoU: {avg_train_iou:.4f} | Val Loss: {val_loss:.4f} | Val IoU: {avg_val_iou:.4f}")
-
-# Gráficas
-epochs = list(range(1, 11))
-
-plt.figure(figsize=(12, 5))
-
-plt.subplot(1, 2, 1)
-plt.plot(epochs, train_loss_list, label='Train Loss', marker='o')
-plt.plot(epochs, val_loss_list, label='Validation Loss', marker='o')
-plt.title('Loss por Epoch')
-plt.xlabel('Epoch')
-plt.ylabel('Loss')
-plt.grid(True)
-plt.legend()
-plt.savefig("perdida-por-epoca.png")
-
-plt.subplot(1, 2, 2)
-plt.plot(epochs, train_iou_list, label='Train IoU', marker='o')
-plt.plot(epochs, val_iou_list, label='Validation IoU', marker='o')
-plt.title('Jaccard Index (IoU) por Epoch')
-plt.xlabel('Epoch')
-plt.ylabel('IoU')
-plt.grid(True)
-plt.legend()
-plt.title('Precisión-por-época.png')
-
-plt.tight_layout()
-plt.savefig("resultados_entrenamiento.png")
-plt.show()
+    plt.tight_layout()
+    plt.savefig("resultados_entrenamiento.png")
+    plt.show()
