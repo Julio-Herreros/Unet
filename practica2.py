@@ -77,7 +77,9 @@ if __name__ == '__main__':
 
         jaccard_epoch = list()
         for image, target in zip(dataloader_train_image, dataloader_train_target):
-            
+            image = image.to(device)
+            target = target.to(device)
+
             pred = unet(image)
 
             loss = cross_entropy(pred, target)
@@ -86,6 +88,7 @@ if __name__ == '__main__':
             optim.zero_grad()
             loss.backward()
             optim.step()
+
 
         for image, target in zip(dataloader_train_image, dataloader_train_target):
             image = image.to(device)
