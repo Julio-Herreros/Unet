@@ -10,6 +10,9 @@ import matplotlib.pyplot as plt
 
 if __name__ == '__main__':
 
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print(f'Usando dispositivo: {device}')
+
     images = os.listdir('./data/Image/')
     masks = os.listdir('./data/Mask/')
 
@@ -52,7 +55,7 @@ if __name__ == '__main__':
     masks_tensor = torch.cat(mask_tensor)
     print(masks_tensor.shape)
 
-    unet = UNet(n_channels=3, n_classes=2)
+    unet = UNet(n_channels=3, n_classes=2).to(device)
 
     dataloader_train_image = torch.utils.data.DataLoader(image_tensor, batch_size=64)
     dataloader_train_target = torch.utils.data.DataLoader(masks_tensor, batch_size=64)
@@ -80,10 +83,14 @@ if __name__ == '__main__':
             loss = cross_entropy(pred, target)
             running_loss += loss.item()
 
+            optim.zero_grad()
             loss.backward()
             optim.step()
 
         for image, target in zip(dataloader_train_image, dataloader_train_target):
+            image = image.to(device)
+            target = target.to(device)
+
 
             pred = unet(image)
 
@@ -94,8 +101,12 @@ if __name__ == '__main__':
 
             jaccard_epoch.append(torch.mean(intersection).detach())
 
-        jaccard_list.append(sum(jaccard_epoch) / len(jaccard_epoch))
-        loss_list.append(running_loss)
+            avg_jaccard = sum(jaccard_epoch) / len(jaccard_epoch)
+            jaccard_list.append(avg_jaccard)
+            loss_list.append(running_loss)
+
+            train_loss_list.append(running_loss)
+            train_iou_list.append(avg_jaccard)
 
     
     # Gráficas
