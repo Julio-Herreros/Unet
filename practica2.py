@@ -26,7 +26,7 @@ if __name__ == '__main__':
         tt = torchvision.transforms.functional.pil_to_tensor(dd)
         tt = torchvision.transforms.functional.resize(tt, (128, 128))
         tt = tt.clone().detach().float() / 255.
-        if tt.shape != (3, 100, 100):
+        if tt.shape != (3, 128, 128):
             continue
         image_tensor.append(tt.unsqueeze(0))
 
