@@ -12,8 +12,8 @@ if __name__ == '__main__':
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Usando dispositivo: {device}")
 
-    images = os.listdir("/home/21916177julio/practica2/data/Image")
-    masks = os.listdir("/home/21916177julio/practica2/data/Image")
+    images = os.listdir("./data/Image/")
+    masks = os.listdir("./data/Mask/")
 
     print(len(images), len(masks))
 
