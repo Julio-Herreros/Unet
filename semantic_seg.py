@@ -133,4 +133,6 @@ if __name__ == '__main__':
     plt.legend()
 
     plt.tight_layout()
+    plt.savefig("resultados_entrenamiento2.png")
+
     plt.show()
