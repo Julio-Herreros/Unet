@@ -22,14 +22,16 @@ def load_data(image_list):
     for image in image_list:
         img = Image.open(f'./data/Image/{image}').convert("RGB")
         mask = Image.open(f'./data/Mask/{image.replace(".jpg", ".png")}').convert("L")
+        mask = torchvision.transforms.functional.resize(mask, (128, 128))
+        mask = torchvision.transforms.functional.to_tensor(mask)
+        mask = (mask > 0).long().squeeze()
 
         img = torchvision.transforms.functional.resize(img, (128, 128))
-        mask = torchvision.transforms.functional.resize(mask, (128, 128))
+        
 
         img = torchvision.transforms.functional.to_tensor(img)
         img = torchvision.transforms.Normalize([0.5]*3, [0.5]*3)(img)
 
-        mask = torch.tensor(torch.as_tensor(mask) > 0, dtype=torch.long)
 
         image_tensor.append(img.unsqueeze(0))
         mask_tensor.append(mask.unsqueeze(0))
