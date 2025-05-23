@@ -56,8 +56,8 @@ if __name__ == '__main__':
     val_imgs = image_tensor[val_indices]
     val_masks = masks_tensor[val_indices]
 
-    train_loader = torch.utils.data.DataLoader(torch.utils.data.TensorDataset(train_imgs, train_masks), batch_size=32, shuffle=True)
-    val_loader = torch.utils.data.DataLoader(torch.utils.data.TensorDataset(val_imgs, val_masks), batch_size=32, shuffle=False)
+    train_loader = torch.utils.data.DataLoader(torch.utils.data.TensorDataset(train_imgs, train_masks), batch_size=64, shuffle=True)
+    val_loader = torch.utils.data.DataLoader(torch.utils.data.TensorDataset(val_imgs, val_masks), batch_size=64, shuffle=False)
 
     unet = UNet(n_channels=3, n_classes=2).to(device)
     optim = torch.optim.Adam(unet.parameters(), lr=0.001)

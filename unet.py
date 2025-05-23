@@ -1,10 +1,3 @@
-import PIL
-from PIL import Image
-import os
-import torch
-import torch.nn as nn
-import torchvision
-import torch.nn.functional as F
 
 class DoubleConv(torch.nn.Module):
     """(convolution => [BN] => ReLU) * 2"""
@@ -113,7 +106,6 @@ class Up(torch.nn.Module):
         x = torch.cat([x2, x1], dim=1)
         x =  self.conv(x)
 
-        x = torch.softmax(x, dim=1)
         return x
 
 
@@ -124,4 +116,3 @@ class OutConv(torch.nn.Module):
 
     def forward(self, x):
         return self.conv(x)
-
