@@ -22,7 +22,7 @@ if __name__ == '__main__':
     for image in images:
         dd = PIL.Image.open(f'./data/Image/{image}')
         tt = torchvision.transforms.functional.pil_to_tensor(dd)
-        tt = torchvision.transforms.functional.resize(tt, (100, 100))
+        tt = torchvision.transforms.functional.resize(tt, (128, 128))
 
         tt = tt[None, :, :, :]
         tt = torch.tensor(tt, dtype=torch.float) / 255.
@@ -37,7 +37,7 @@ if __name__ == '__main__':
         mm = torchvision.transforms.functional.pil_to_tensor(dd)
 
         mm = mm.repeat(3, 1, 1)
-        mm = torchvision.transforms.functional.resize(mm, (100, 100))
+        mm = torchvision.transforms.functional.resize(mm, (128, 128))
         mm = mm[:1, :, :]
 
         mm = torch.tensor((mm > 0.).detach().numpy(), dtype=torch.long)
